@@ -1,0 +1,17 @@
+# GitHub Workflow Monitoring Configuration
+# This file defines which repositories and workflows to monitor
+# branch defaults to "main" and event defaults to "schedule" if not specified
+
+repositories:
+  # Example 1: Monitoring Arm AVH CI Template
+  - owner: Arm-Examples
+    repo: AVH_CI_Template
+    workflows:
+      - name: basic.yml
+
+  # Example 2: Monitoring this repository's workflows
+  - owner: Open-CMSIS-Pack
+    repo: csolution-examples
+    workflows:
+      - name: CubeMX-CI.yml
+      - name: DualCore-CI.yml

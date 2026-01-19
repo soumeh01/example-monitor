@@ -1,0 +1,29 @@
+{
+  "name": "workflow-monitoring-dashboard",
+  "version": "1.0.0",
+  "description": "GitHub Actions Workflow Monitoring Dashboard - Monitor multiple repository workflows and generate interactive HTML dashboards",
+  "type": "module",
+  "main": "scripts/monitor-workflows.ts",
+  "scripts": {
+    "monitor": "tsx scripts/monitor-workflows.ts",
+    "monitor:watch": "tsx watch scripts/monitor-workflows.ts"
+  },
+  "keywords": [
+    "github-actions",
+    "workflow",
+    "monitoring",
+    "dashboard",
+    "ci-cd",
+    "devops"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
