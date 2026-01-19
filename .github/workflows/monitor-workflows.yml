@@ -1,0 +1,89 @@
+name: Monitor Workflows
+
+on:
+  # Run on schedule (every hour)
+  schedule:
+    - cron: '0 * * * *'
+
+  # Allow manual trigger
+  workflow_dispatch:
+  # Run on push to main branch when config changes
+  push:
+    branches:
+      - main
+    paths:
+      - 'monitor-config.yml'
+      - '.github/workflows/monitor-workflows.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  monitor:
+    name: Monitor GitHub Workflows
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run workflow monitoring
+        id: monitor
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run monitor
+        continue-on-error: true
+
+      - name: Generate HTML dashboard
+        run: |
+          # Copy template and replace DATA_PLACEHOLDER with actual data
+          cp templates/dashboard-template.html dashboard.html
+          
+          # Inject JSON data into HTML
+          JSON_DATA=$(cat workflow-results.json | jq -c .)
+          sed -i "s|DATA_PLACEHOLDER|$JSON_DATA|g" dashboard.html
+
+          echo "✅ Dashboard generated: dashboard.html"
+
+      - name: Commit dashboard to repository
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add dashboard.html
+          git diff --staged --quiet || git commit -m "Update workflow monitoring dashboard [skip ci]"
+          git push
+
+      - name: Upload workflow results as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: workflow-monitoring-results
+          path: workflow-results.json
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Check for failures
+        run: |
+          FAILURES=$(jq '[.[] | select(.conclusion == "failure")] | length' workflow-results.json)
+
+          if [ "$FAILURES" -gt 0 ]; then
+            echo "⚠️ Warning: $FAILURES workflow(s) have failed"
+            echo ""
+            echo "Failed workflows:"
+            jq -r '.[] | select(.conclusion == "failure") | 
+              "  - \(.owner)/\(.repo) - \(.workflow): \(.html_url)"
+            ' workflow-results.json
+
+            # Uncomment the next line to fail the job if any monitored workflow failed
+            # exit 1
+          else
+            echo "✅ All monitored workflows are passing or in progress"
+          fi
