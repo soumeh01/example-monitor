@@ -1,21 +1,20 @@
 # Workflow Monitoring Dashboard
 
-A comprehensive GitHub Actions workflow monitoring solution that tracks multiple repositories and generates interactive HTML dashboards with real-time filtering and sorting capabilities.
+A comprehensive GitHub Actions workflow monitoring solution that tracks multiple
+repositories and generates HTML dashboards.
 
 ## Features
 
 - 🔍 **Multi-Repository Monitoring** - Monitor workflows across multiple GitHub repositories
 - 📊 **Interactive Dashboard** - Beautiful HTML dashboard with sorting and filtering
-- 🎯 **Smart Filtering** - Text-based repo filter and status dropdown
 - 📈 **Status Tracking** - Track success, failure, and in-progress workflows
 - ⚡ **Real-time Updates** - Automated scheduling via GitHub Actions
-- 🎨 **Clean UI** - Minimalist table design with color-coded statuses
 
 ## Quick Start
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - GitHub Personal Access Token (for API access)
 
 ### Installation
@@ -45,7 +44,7 @@ repositories:
         event: schedule
 ```
 
-2. **Set GitHub Token:**
+1. **Set GitHub Token:**
 
 ```bash
 export GITHUB_TOKEN=your_github_token_here
@@ -60,8 +59,9 @@ npm run monitor
 ```
 
 This will:
+
 - Fetch workflow status from configured repositories
-- Generate `workflow-results.json` with raw data
+- Generate `results.json` with raw data
 - Create `dashboard.html` with interactive dashboard
 - Display summary statistics in terminal
 
@@ -80,7 +80,7 @@ The repository includes a pre-configured workflow that runs automatically:
    - Enable workflows
 
 4. **The workflow will:**
-   - Run hourly (configurable via cron schedule)
+   - Run weekly once (configurable via cron schedule)
    - Generate and commit `dashboard.html`
    - Upload results as artifacts
    - Alert on failures
@@ -96,13 +96,6 @@ The repository includes a pre-configured workflow that runs automatically:
 - **Status Filter**: Dropdown with predefined options
   - All / Success / Failure / In Progress
 
-### Sorting
-
-Click column headers to sort by:
-- **Repo**: Alphabetical order
-- **Workflow**: Alphabetical order  
-- **Last Run**: Date ascending/descending
-
 Visual indicators show current sort direction (↑ ↓)
 
 ### Status Display
@@ -111,23 +104,6 @@ Visual indicators show current sort direction (↑ ↓)
 - ❌ **Failure** - Red color
 - 🔄 **In Progress** - Blue color
 - ⚠️ **Error** - Gray color
-
-## File Structure
-
-```
-workflow-monitoring-dashboard/
-├── .github/
-│   └── workflows/
-│       └── monitor-workflows.yml    # GitHub Actions workflow
-├── scripts/
-│   └── monitor-workflows.ts         # Monitoring script
-├── templates/
-│   └── dashboard-template.html      # Dashboard HTML template
-├── monitor-config.yml               # Repository configuration
-├── package.json                     # Node.js dependencies
-├── tsconfig.json                    # TypeScript configuration
-└── README.md                        # This file
-```
 
 ## Configuration Options
 
@@ -139,18 +115,6 @@ repositories:
     repo: string           # Repository name
     workflows:
       - name: string       # Workflow filename (e.g., "build.yml")
-        branch: string     # Branch to monitor (default: "main")
-        event: string      # Event type (push/schedule/etc, default: "schedule")
-```
-
-### GitHub Actions Workflow
-
-Customize the schedule in `.github/workflows/monitor-workflows.yml`:
-
-```yaml
-on:
-  schedule:
-    - cron: '0 * * * *'  # Runs every hour
 ```
 
 ## Command Line Options
@@ -171,8 +135,10 @@ npm run monitor -- --help
 
 ## Output Files
 
-### `workflow-results.json`
+### `results.json`
+
 Raw JSON data with workflow details:
+
 ```json
 [
   {
@@ -191,7 +157,9 @@ Raw JSON data with workflow details:
 ```
 
 ### `dashboard.html`
+
 Interactive HTML dashboard that can be:
+
 - Opened locally in a browser
 - Hosted on GitHub Pages
 - Deployed to any static hosting service
@@ -205,36 +173,12 @@ Interactive HTML dashboard that can be:
 3. The workflow will automatically update `dashboard.html`
 4. Access at `https://your-username.github.io/workflow-monitoring-dashboard/`
 
-### Alternative Hosting
-
-The `dashboard.html` file is completely self-contained and can be hosted anywhere:
-- Netlify
-- Vercel
-- AWS S3
-- Azure Static Web Apps
-
 ## API Rate Limits
 
 - **Without token**: 60 requests/hour
 - **With token**: 5,000 requests/hour
 
 The script includes automatic delays to avoid rate limiting.
-
-## Troubleshooting
-
-### "No runs found"
-- Check that the workflow file name is correct
-- Verify the branch name matches
-- Ensure workflows have run at least once
-
-### Rate limiting
-- Add `GITHUB_TOKEN` environment variable
-- Reduce monitoring frequency
-- Monitor fewer repositories
-
-### Template not found
-- Ensure `templates/dashboard-template.html` exists
-- Check file paths are relative to project root
 
 ## Contributing
 
@@ -243,14 +187,3 @@ Contributions are welcome! Please feel free to submit issues or pull requests.
 ## License
 
 MIT License - feel free to use this in your projects!
-
-## Support
-
-For issues and questions:
-- Open an issue on GitHub
-- Check existing issues for solutions
-- Review GitHub Actions logs for errors
-
----
-
-**Made with ❤️ for monitoring GitHub Actions workflows**

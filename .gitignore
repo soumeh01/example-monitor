@@ -1,14 +1,9 @@
 # Dependencies
 node_modules/
-package-lock.json
 
 # Build outputs
 dist/
 *.tsbuildinfo
-
-# Generated files
-workflow-results.json
-dashboard.html
 
 # IDE
 .vscode/

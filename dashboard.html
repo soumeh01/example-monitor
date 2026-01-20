@@ -1,0 +1,187 @@
+<!doctype html><meta charset="utf-8">
+<title>Workflow Monitoring Dashboard</title>
+<style>
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; padding: 1rem; }
+  table { border-collapse: collapse; width: 100%; margin-top: 1rem; table-layout: fixed; }
+  th, td { border: 1px solid #e5e7eb; padding: 8px; }
+  th { background: #f3f4f6; text-align: left; position: relative; }
+  th.sortable { cursor: pointer; user-select: none; }
+  th.sortable:hover { background: #e5e7eb; }
+  th.sortable::after { content: ' ↕'; opacity: 0.3; }
+  th.sortable.asc::after { content: ' ↑'; opacity: 1; }
+  th.sortable.desc::after { content: ' ↓'; opacity: 1; }
+  th.repo-header, th.status-header { display: flex; justify-content: space-between; align-items: center; }
+  tr:nth-child(even) { background: #fafafa; }
+  code { background: #f6f8fa; padding: 2px 4px; border-radius: 4px; }
+  .status-success { color: #059669; }
+  .status-failure { color: #dc2626; }
+  .status-progress { color: #2563eb; }
+  select { padding: 2px 4px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.9rem; }
+  input { padding: 2px 4px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.9rem; }
+</style>
+<h1>Workflow Monitoring Dashboard</h1>
+<p><em>Updated: <span id="timestamp"></span></em></p>
+<table id="workflowTable">
+  <thead>
+    <tr>
+      <th class="sortable repo-header" data-column="repo">
+        <span>Repo</span>
+        <input type="text" id="filterRepo" placeholder="Filter...">
+      </th>
+      <th class="sortable" data-column="workflow">Workflow</th>
+      <th class="sortable" data-column="date">Last Run</th>
+      <th class="status-header">
+        <span>Status</span>
+        <select id="filterStatus">
+          <option value="">All</option>
+          <option value="success">Success</option>
+          <option value="failure">Failure</option>
+          <option value="in_progress">In Progress</option>
+        </select>
+      </th>
+      <th>Link</th>
+    </tr>
+  </thead>
+  <tbody id="workflowBody"></tbody>
+</table>
+<script>
+  const data = [{"owner":"Arm-Examples","repo":"AVH_CI_Template","workflow":"basic.yml","branch":"main","event":"schedule","timestamp":"2026-01-20T08:38:02.562Z","run_id":"20903016068","run_number":"97","status":"completed","conclusion":"failure","run_started_at":"2026-01-11T22:35:33Z","html_url":"https://github.com/Arm-Examples/AVH_CI_Template/actions/runs/20903016068","head_sha":"83be684fbcdb3e4abc8751ca843f2c45fb39cb47"},{"owner":"Open-CMSIS-Pack","repo":"csolution-examples","workflow":"CubeMX-CI.yml","branch":"main","event":"schedule","timestamp":"2026-01-20T08:38:04.047Z","run_id":"21100085129","run_number":"135","status":"completed","conclusion":"success","run_started_at":"2026-01-17T20:03:00Z","html_url":"https://github.com/Open-CMSIS-Pack/csolution-examples/actions/runs/21100085129","head_sha":"c2d42efe89bd2a9885e5df419beba3aaf8f06d9a"},{"owner":"Open-CMSIS-Pack","repo":"csolution-examples","workflow":"DualCore-CI.yml","branch":"main","event":"schedule","timestamp":"2026-01-20T08:38:05.319Z","run_id":"21100137775","run_number":"109","status":"completed","conclusion":"success","run_started_at":"2026-01-17T20:07:04Z","html_url":"https://github.com/Open-CMSIS-Pack/csolution-examples/actions/runs/21100137775","head_sha":"c2d42efe89bd2a9885e5df419beba3aaf8f06d9a"},{"owner":"Arm-Examples","repo":"AVH-Hello","workflow":"hello-ci.yml","branch":"main","event":"schedule","timestamp":"2026-01-20T08:38:06.619Z","run_id":"21127090340","run_number":"94","status":"completed","conclusion":"success","run_started_at":"2026-01-19T06:04:45Z","html_url":"https://github.com/Arm-Examples/AVH-Hello/actions/runs/21127090340","head_sha":"e6c7145b999f97aa12fd78e4756d23088ac90dbe"},{"owner":"Arm-Examples","repo":"AVH-Hello","workflow":"hello-ci-ubuntu-2404-arm.yml","branch":"main","event":"schedule","timestamp":"2026-01-20T08:38:07.971Z","run_id":"21127094928","run_number":"29","status":"completed","conclusion":"success","run_started_at":"2026-01-19T06:04:58Z","html_url":"https://github.com/Arm-Examples/AVH-Hello/actions/runs/21127094928","head_sha":"e6c7145b999f97aa12fd78e4756d23088ac90dbe"}];
+
+  // Update timestamp
+  document.getElementById('timestamp').textContent = new Date().toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'UTC',
+    timeZoneName: 'short'
+  });
+
+  function formatDate(dateStr) {
+    if (!dateStr) return 'N/A';
+    const date = new Date(dateStr);
+    return date.toISOString().split('T')[0];
+  }
+
+  function getStatusIcon(workflow) {
+    if (workflow.conclusion === 'success') return '✅';
+    if (workflow.conclusion === 'failure') return '❌';
+    if (workflow.status === 'in_progress') return '🔄';
+    return '⚠️';
+  }
+
+  function getStatusClass(workflow) {
+    if (workflow.conclusion === 'success') return 'status-success';
+    if (workflow.conclusion === 'failure') return 'status-failure';
+    if (workflow.status === 'in_progress') return 'status-progress';
+    return '';
+  }
+
+  // Sort: failures first, then progress, then success
+  let sortedData = [...data].sort((a, b) => {
+    if (a.conclusion === 'failure' && b.conclusion !== 'failure') return -1;
+    if (a.conclusion !== 'failure' && b.conclusion === 'failure') return 1;
+    if (a.status === 'in_progress' && b.status !== 'in_progress') return -1;
+    if (a.status !== 'in_progress' && b.status === 'in_progress') return 1;
+    return 0;
+  });
+
+  function renderTable(dataToRender) {
+    const tbody = document.getElementById('workflowBody');
+    tbody.innerHTML = '';
+    dataToRender.forEach(workflow => {
+      const statusClass = getStatusClass(workflow);
+      const statusIcon = getStatusIcon(workflow);
+      const statusText = workflow.conclusion || workflow.status;
+      const row = `<tr data-repo="${workflow.owner}/${workflow.repo}" data-workflow="${workflow.workflow}" data-date="${workflow.run_started_at || ''}">
+        <td><code>${workflow.owner}/${workflow.repo}</code></td>
+        <td>${workflow.workflow}</td>
+        <td>${formatDate(workflow.run_started_at)}</td>
+        <td class="${statusClass}">${statusIcon} <code>${statusText}</code></td>
+        <td>${workflow.html_url ? `<a href="${workflow.html_url}" target="_blank">View →</a>` : 'N/A'}</td>
+      </tr>`;
+      tbody.innerHTML += row;
+    });
+  }
+
+  renderTable(sortedData);
+
+  // Sorting functionality
+  let currentSort = { column: null, direction: 'asc' };
+  document.querySelectorAll('th.sortable').forEach(th => {
+    th.addEventListener('click', function() {
+      const column = this.getAttribute('data-column');
+
+      // Update sort direction
+      if (currentSort.column === column) {
+        currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+      } else {
+        currentSort.column = column;
+        currentSort.direction = 'asc';
+      }
+
+      // Remove sort classes from all headers
+      document.querySelectorAll('th.sortable').forEach(h => {
+        h.classList.remove('asc', 'desc');
+      });
+
+      // Add sort class to current header
+      this.classList.add(currentSort.direction);
+
+      // Sort the data
+      sortedData.sort((a, b) => {
+        let aVal, bVal;
+
+        if (column === 'repo') {
+          aVal = `${a.owner}/${a.repo}`.toLowerCase();
+          bVal = `${b.owner}/${b.repo}`.toLowerCase();
+        } else if (column === 'workflow') {
+          aVal = a.workflow.toLowerCase();
+          bVal = b.workflow.toLowerCase();
+        } else if (column === 'date') {
+          aVal = new Date(a.run_started_at || 0);
+          bVal = new Date(b.run_started_at || 0);
+        }
+
+        if (aVal < bVal) return currentSort.direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return currentSort.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+
+      renderTable(sortedData);
+
+      // Reapply both filters after sorting
+      const filterRepoValue = document.getElementById('filterRepo').value;
+      const filterStatusValue = document.getElementById('filterStatus').value;
+      if (filterRepoValue || filterStatusValue) {
+        filterRepoTable();
+      }
+    });
+  });
+
+  // Text-based repo filter with matching
+  const filterRepo = document.getElementById('filterRepo');
+  const filterStatus = document.getElementById('filterStatus');
+  
+  function filterRepoTable() {
+    const table = document.getElementById('workflowTable');
+    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    const filterRepoValue = filterRepo.value.toLowerCase();
+    const statusFilterValue = filterStatus.value.toLowerCase();
+
+    for (let row of rows) {
+      const cells = row.getElementsByTagName('td');
+      const repo = cells[0].textContent.trim().toLowerCase();
+      const status = cells[3].textContent.toLowerCase();
+      
+      const repoMatch = filterRepoValue === '' || repo.includes(filterRepoValue);
+      const statusMatch = statusFilterValue === '' || status.includes(statusFilterValue);
+      
+      row.style.display = (repoMatch && statusMatch) ? '' : 'none';
+    }
+  }
+  
+  filterRepo.addEventListener('input', filterRepoTable);
+  filterStatus.addEventListener('change', filterRepoTable);
+</script>
