@@ -1,9 +1,9 @@
 name: Monitor Workflows
 
 on:
-  # Run on schedule (every hour)
+  # Run on schedule (every Sunday at midnight UTC)
   schedule:
-    - cron: '0 * * * *'
+    - cron: '0 0 * * 0'
 
   # Allow manual trigger
   workflow_dispatch:
@@ -49,7 +49,7 @@ jobs:
           cp templates/dashboard-template.html dashboard.html
           
           # Inject JSON data into HTML
-          JSON_DATA=$(cat workflow-results.json | jq -c .)
+          JSON_DATA=$(cat results.json | jq -c .)
           sed -i "s|DATA_PLACEHOLDER|$JSON_DATA|g" dashboard.html
 
           echo "✅ Dashboard generated: dashboard.html"
@@ -66,13 +66,13 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: workflow-monitoring-results
-          path: workflow-results.json
+          path: results.json
           retention-days: 30
           if-no-files-found: error
 
       - name: Check for failures
         run: |
-          FAILURES=$(jq '[.[] | select(.conclusion == "failure")] | length' workflow-results.json)
+          FAILURES=$(jq '[.[] | select(.conclusion == "failure")] | length' results.json)
 
           if [ "$FAILURES" -gt 0 ]; then
             echo "⚠️ Warning: $FAILURES workflow(s) have failed"
@@ -80,7 +80,7 @@ jobs:
             echo "Failed workflows:"
             jq -r '.[] | select(.conclusion == "failure") | 
               "  - \(.owner)/\(.repo) - \(.workflow): \(.html_url)"
-            ' workflow-results.json
+            ' results.json
 
             # Uncomment the next line to fail the job if any monitored workflow failed
             # exit 1

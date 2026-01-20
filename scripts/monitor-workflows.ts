@@ -431,7 +431,7 @@ async function main() {
   
   // Parse command line arguments
   let configPath = path.join(process.cwd(), 'monitor-config.yml');
-  let outputPath = path.join(process.cwd(), 'workflow-results.json');
+  let outputPath = path.join(process.cwd(), 'results.json');
   let token = process.env.GITHUB_TOKEN;
 
   for (let i = 0; i < args.length; i++) {
@@ -452,7 +452,7 @@ Usage: node monitor-workflows.js [options]
 
 Options:
   --config <path>   Path to configuration file (default: monitor-config.yml)
-  --output <path>   Path to output JSON file (default: workflow-results.json)
+  --output <path>   Path to output JSON file (default: results.json)
   --token <token>   GitHub API token (default: GITHUB_TOKEN env var)
   --help           Show this help message
 
@@ -487,15 +487,42 @@ Environment Variables:
     generateHtmlDashboard(results, htmlPath);
     console.log(`✅ Dashboard saved to: ${htmlPath}`);
 
-    // Print simple summary
+    // Calculate statistics
     const total = results.length;
     const success = results.filter(r => r.conclusion === 'success').length;
     const failure = results.filter(r => r.conclusion === 'failure').length;
     const inProgress = results.filter(r => r.status === 'in_progress').length;
     const errors = results.filter(r => r.status === 'error').length;
 
-    console.log('\n📊 Summary Statistics:');
-    console.log('─────────────────────────────────────────────────────────────────');
+    // List errors first if found
+    const errorWorkflows = results.filter(r => r.status === 'error');
+    if (errorWorkflows.length > 0) {
+      console.log('\n⚠️  Errors Encountered:');
+      console.log('─────────────────────────────────────────────────────────────────');
+      for (const result of errorWorkflows) {
+        console.log(`   • ${result.owner}/${result.repo} (${result.workflow})`);
+        console.log(`     Error: ${result.error}`);
+        console.log('');
+      }
+    }
+
+    // List failed workflows second if found
+    const failedWorkflows = results.filter(r => r.conclusion === 'failure');
+    if (failedWorkflows.length > 0) {
+      console.log('\n❌ Failed Workflows:');
+      console.log('────────────────────');
+      for (const result of failedWorkflows) {
+        console.log(`   • ${result.owner}/${result.repo} (${result.workflow})`);
+        if (result.html_url) {
+          console.log(`     View: ${result.html_url}`);
+        }
+        console.log('');
+      }
+    }
+
+    // Print summary at the end
+    console.log('📊 Summary Statistics:');
+    console.log('──────────────────────');
     console.log(`   Total Workflows Monitored: ${total}`);
     console.log(`   ✅ Successful: ${success}`);
     console.log(`   ❌ Failed: ${failure}`);

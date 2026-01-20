@@ -5,8 +5,7 @@
   "type": "module",
   "main": "scripts/monitor-workflows.ts",
   "scripts": {
-    "monitor": "tsx scripts/monitor-workflows.ts",
-    "monitor:watch": "tsx watch scripts/monitor-workflows.ts"
+    "monitor": "tsx scripts/monitor-workflows.ts"
   },
   "keywords": [
     "github-actions",
