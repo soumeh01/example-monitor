@@ -33,13 +33,3 @@ repositories:
     workflows:
       - name: build.yml
         event: push
-
-  - owner: Evagan2018
-    repo: ST_NUCLEO-F429ZI_BSP
-    workflows:
-      - name: pack.yml
-        event: push
-      - name: Test-Examples.yml
-        event: schedule
-      - name: Test-MDK-Middleware-RefApps.yml
-        event: schedule
