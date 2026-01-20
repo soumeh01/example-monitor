@@ -1,54 +1,590 @@
-<!doctype html><meta charset="utf-8">
-<title>Workflow Monitoring Dashboard</title>
-<style>
-  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; padding: 1rem; }
-  table { border-collapse: collapse; width: 100%; margin-top: 1rem; table-layout: fixed; }
-  th, td { border: 1px solid #e5e7eb; padding: 8px; }
-  th { background: #f3f4f6; text-align: left; position: relative; }
-  th.sortable { cursor: pointer; user-select: none; }
-  th.sortable:hover { background: #e5e7eb; }
-  th.sortable::after { content: ' ↕'; opacity: 0.3; }
-  th.sortable.asc::after { content: ' ↑'; opacity: 1; }
-  th.sortable.desc::after { content: ' ↓'; opacity: 1; }
-  th.repo-header, th.status-header { display: flex; justify-content: space-between; align-items: center; }
-  tr:nth-child(even) { background: #fafafa; }
-  code { background: #f6f8fa; padding: 2px 4px; border-radius: 4px; }
-  .status-success { color: #059669; }
-  .status-failure { color: #dc2626; }
-  .status-progress { color: #2563eb; }
-  select { padding: 2px 4px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.9rem; }
-  input { padding: 2px 4px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.9rem; }
-</style>
-<h1>Workflow Monitoring Dashboard</h1>
-<p><em>Updated: <span id="timestamp"></span></em></p>
-<table id="workflowTable">
-  <thead>
-    <tr>
-      <th class="sortable repo-header" data-column="repo">
-        <span>Repo</span>
-        <input type="text" id="filterRepo" placeholder="Filter...">
-      </th>
-      <th class="sortable" data-column="workflow">Workflow</th>
-      <th class="sortable" data-column="date">Last Run</th>
-      <th class="status-header">
-        <span>Status</span>
-        <select id="filterStatus">
-          <option value="">All</option>
-          <option value="success">Success</option>
-          <option value="failure">Failure</option>
-          <option value="in_progress">In Progress</option>
-        </select>
-      </th>
-      <th>Link</th>
-    </tr>
-  </thead>
-  <tbody id="workflowBody"></tbody>
-</table>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Workflow Monitoring Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
+  <style>
+    :root {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f9fafb;
+      --bg-tertiary: #f3f4f6;
+      --text-primary: #111827;
+      --text-secondary: #6b7280;
+      --border-color: #e5e7eb;
+      --success-color: #10b981;
+      --failure-color: #ef4444;
+      --progress-color: #3b82f6;
+      --warning-color: #f59e0b;
+      --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+      --card-shadow-hover: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    }
+
+    [data-theme="dark"] {
+      --bg-primary: #1f2937;
+      --bg-secondary: #111827;
+      --bg-tertiary: #374151;
+      --text-primary: #f9fafb;
+      --text-secondary: #9ca3af;
+      --border-color: #4b5563;
+      --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3);
+      --card-shadow-hover: 0 4px 6px -1px rgb(0 0 0 / 0.4);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      padding: 1rem;
+      transition: background-color 0.3s, color 0.3s;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .header-title {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .header-controls {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+    }
+
+    .btn {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.2s;
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--card-shadow-hover);
+    }
+
+    .btn-primary {
+      background: var(--progress-color);
+      color: white;
+      border: none;
+    }
+
+    .theme-toggle {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      padding: 0.5rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      font-size: 1.25rem;
+      transition: transform 0.2s;
+    }
+
+    .theme-toggle:hover {
+      transform: scale(1.1);
+    }
+
+    .timestamp {
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Stats Cards */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat-card {
+      background: var(--bg-primary);
+      padding: 1.5rem;
+      border-radius: 0.75rem;
+      box-shadow: var(--card-shadow);
+      transition: all 0.3s;
+      border: 1px solid var(--border-color);
+    }
+
+    .stat-card:hover {
+      box-shadow: var(--card-shadow-hover);
+      transform: translateY(-2px);
+    }
+
+    .stat-label {
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .stat-value {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin: 0.5rem 0;
+    }
+
+    .stat-icon {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .stat-percentage {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+    }
+
+    /* Chart Section */
+    .chart-section {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .chart-card {
+      background: var(--bg-primary);
+      padding: 1.5rem;
+      border-radius: 0.75rem;
+      box-shadow: var(--card-shadow);
+      border: 1px solid var(--border-color);
+    }
+
+    .chart-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: var(--text-primary);
+    }
+
+    /* Filters */
+    .filters {
+      background: var(--bg-primary);
+      padding: 1.25rem;
+      border-radius: 0.75rem;
+      margin-bottom: 1.5rem;
+      box-shadow: var(--card-shadow);
+      border: 1px solid var(--border-color);
+    }
+
+    .filter-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .filter-label {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    input, select {
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--border-color);
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      transition: border-color 0.2s;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--progress-color);
+    }
+
+    /* Table */
+    .table-container {
+      background: var(--bg-primary);
+      border-radius: 0.75rem;
+      overflow: hidden;
+      box-shadow: var(--card-shadow);
+      border: 1px solid var(--border-color);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    th {
+      background: var(--bg-tertiary);
+      font-weight: 600;
+      font-size: 0.875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    th.sortable {
+      cursor: pointer;
+      user-select: none;
+      transition: background-color 0.2s;
+    }
+
+    th.sortable:hover {
+      background: var(--border-color);
+    }
+
+    th.sortable::after {
+      content: ' ↕';
+      opacity: 0.3;
+      font-size: 0.75rem;
+    }
+
+    th.sortable.asc::after {
+      content: ' ↑';
+      opacity: 1;
+    }
+
+    th.sortable.desc::after {
+      content: ' ↓';
+      opacity: 1;
+    }
+
+    tr {
+      transition: background-color 0.2s;
+    }
+
+    tbody tr:hover {
+      background: var(--bg-secondary);
+      cursor: pointer;
+    }
+
+    tbody tr.expanded {
+      background: var(--bg-tertiary);
+    }
+
+    .details-row {
+      display: none;
+    }
+
+    .details-row.show {
+      display: table-row;
+    }
+
+    .details-cell {
+      padding: 1.5rem;
+      background: var(--bg-secondary);
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .details-content {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .detail-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .detail-label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .detail-value {
+      font-size: 0.875rem;
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    code {
+      background: var(--bg-tertiary);
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      font-size: 0.875rem;
+      font-family: 'Monaco', 'Courier New', monospace;
+    }
+
+    /* Status Badges */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .status-success {
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--success-color);
+    }
+
+    .status-failure {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--failure-color);
+    }
+
+    .status-progress {
+      background: rgba(59, 130, 246, 0.1);
+      color: var(--progress-color);
+    }
+
+    .status-error {
+      background: rgba(245, 158, 11, 0.1);
+      color: var(--warning-color);
+    }
+
+    .link-button {
+      color: var(--progress-color);
+      text-decoration: none;
+      font-weight: 500;
+      transition: opacity 0.2s;
+    }
+
+    .link-button:hover {
+      opacity: 0.8;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .chart-section {
+        grid-template-columns: 1fr;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      h1 {
+        font-size: 1.5rem;
+      }
+
+      table {
+        font-size: 0.875rem;
+      }
+
+      th, td {
+        padding: 0.75rem 0.5rem;
+      }
+    }
+
+    /* Loading Animation */
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .pulse {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    /* Refresh Button Animation */
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .spin {
+      animation: spin 1s linear infinite;
+    }
+
+    .relative-time {
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+      display: block;
+      margin-top: 0.25rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="header-title">
+        <h1>🔍 Workflow Monitor</h1>
+      </div>
+      <div class="header-controls">
+        <div class="timestamp">
+          <span>🕐</span>
+          <div>
+            <div id="timestamp"></div>
+            <div id="lastRefresh" style="font-size: 0.75rem;"></div>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="refreshBtn" onclick="location.reload()">
+          <span id="refreshIcon">🔄</span> Refresh
+        </button>
+        <button class="btn" id="exportBtn">📥 Export CSV</button>
+        <button class="theme-toggle" id="themeToggle" title="Toggle theme">🌙</button>
+      </div>
+    </header>
+    <!-- Stats Cards -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon">📊</div>
+        <div class="stat-label">Total Workflows</div>
+        <div class="stat-value" id="totalCount">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">✅</div>
+        <div class="stat-label">Success Rate</div>
+        <div class="stat-value" id="successRate">0%</div>
+        <div class="stat-percentage" id="successCount"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">❌</div>
+        <div class="stat-label">Failed</div>
+        <div class="stat-value" id="failedCount" style="color: var(--failure-color)">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🔄</div>
+        <div class="stat-label">In Progress</div>
+        <div class="stat-value" id="progressCount" style="color: var(--progress-color)">0</div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="chart-section">
+      <div class="chart-card">
+        <h2 class="chart-title">Status Distribution</h2>
+        <canvas id="statusChart"></canvas>
+      </div>
+      <div class="chart-card">
+        <h2 class="chart-title">Repository Overview</h2>
+        <canvas id="repoChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters">
+      <div class="filter-grid">
+        <div class="filter-group">
+          <label class="filter-label" for="filterRepo">Search Repository</label>
+          <input type="text" id="filterRepo" placeholder="Type to filter...">
+        </div>
+        <div class="filter-group">
+          <label class="filter-label" for="filterWorkflow">Search Workflow</label>
+          <input type="text" id="filterWorkflow" placeholder="Type to filter...">
+        </div>
+        <div class="filter-group">
+          <label class="filter-label" for="filterStatus">Filter by Status</label>
+          <select id="filterStatus">
+            <option value="">All Statuses</option>
+            <option value="success">✅ Success</option>
+            <option value="failure">❌ Failed</option>
+            <option value="in_progress">🔄 In Progress</option>
+            <option value="error">⚠️ Error</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label" for="filterBranch">Search Branch</label>
+          <input type="text" id="filterBranch" placeholder="Type to filter...">
+        </div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-container">
+      <table id="workflowTable">
+        <thead>
+          <tr>
+            <th class="sortable" data-column="repo">Repository</th>
+            <th class="sortable" data-column="workflow">Workflow</th>
+            <th class="sortable" data-column="branch">Branch</th>
+            <th class="sortable" data-column="date">Last Run</th>
+            <th class="sortable" data-column="status">Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="workflowBody"></tbody>
+      </table>
+    </div>
+  </div>
+
 <script>
   const data = DATA_PLACEHOLDER;
+  let sortedData = [...data];
+  let statusChart = null;
+  let repoChart = null;
+
+  // Theme Management
+  const themeToggle = document.getElementById('themeToggle');
+  const currentTheme = localStorage.getItem('theme') || 'light';
+  
+  if (currentTheme === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    themeToggle.textContent = '☀️';
+  }
+
+  themeToggle.addEventListener('click', () => {
+    const theme = document.documentElement.getAttribute('data-theme');
+    if (theme === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'light');
+      localStorage.setItem('theme', 'light');
+      themeToggle.textContent = '🌙';
+    } else {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      localStorage.setItem('theme', 'dark');
+      themeToggle.textContent = '☀️';
+    }
+    updateCharts();
+  });
 
   // Update timestamp
-  document.getElementById('timestamp').textContent = new Date().toLocaleString('en-US', {
+  const now = new Date();
+  document.getElementById('timestamp').textContent = now.toLocaleString('en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -57,55 +593,283 @@
     timeZone: 'UTC',
     timeZoneName: 'short'
   });
+  
+  document.getElementById('lastRefresh').textContent = 'Just now';
+
+  // Calculate Statistics
+  function calculateStats() {
+    const total = data.length;
+    const success = data.filter(r => r.conclusion === 'success').length;
+    const failure = data.filter(r => r.conclusion === 'failure').length;
+    const inProgress = data.filter(r => r.status === 'in_progress').length;
+    const errors = data.filter(r => r.status === 'error').length;
+    const successRate = total > 0 ? Math.round((success / total) * 100) : 0;
+
+    document.getElementById('totalCount').textContent = total;
+    document.getElementById('successRate').textContent = successRate + '%';
+    document.getElementById('successCount').textContent = `${success} of ${total} workflows`;
+    document.getElementById('failedCount').textContent = failure;
+    document.getElementById('progressCount').textContent = inProgress;
+
+    return { total, success, failure, inProgress, errors, successRate };
+  }
+
+  // Format relative time
+  function getRelativeTime(dateStr) {
+    if (!dateStr) return 'Unknown';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 30) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  }
 
   function formatDate(dateStr) {
     if (!dateStr) return 'N/A';
     const date = new Date(dateStr);
-    return date.toISOString().split('T')[0];
-  }
-
-  function getStatusIcon(workflow) {
-    if (workflow.conclusion === 'success') return '✅';
-    if (workflow.conclusion === 'failure') return '❌';
-    if (workflow.status === 'in_progress') return '🔄';
-    return '⚠️';
-  }
-
-  function getStatusClass(workflow) {
-    if (workflow.conclusion === 'success') return 'status-success';
-    if (workflow.conclusion === 'failure') return 'status-failure';
-    if (workflow.status === 'in_progress') return 'status-progress';
-    return '';
-  }
-
-  // Sort: failures first, then progress, then success
-  let sortedData = [...data].sort((a, b) => {
-    if (a.conclusion === 'failure' && b.conclusion !== 'failure') return -1;
-    if (a.conclusion !== 'failure' && b.conclusion === 'failure') return 1;
-    if (a.status === 'in_progress' && b.status !== 'in_progress') return -1;
-    if (a.status !== 'in_progress' && b.status === 'in_progress') return 1;
-    return 0;
-  });
-
-  function renderTable(dataToRender) {
-    const tbody = document.getElementById('workflowBody');
-    tbody.innerHTML = '';
-    dataToRender.forEach(workflow => {
-      const statusClass = getStatusClass(workflow);
-      const statusIcon = getStatusIcon(workflow);
-      const statusText = workflow.conclusion || workflow.status;
-      const row = `<tr data-repo="${workflow.owner}/${workflow.repo}" data-workflow="${workflow.workflow}" data-date="${workflow.run_started_at || ''}">
-        <td><code>${workflow.owner}/${workflow.repo}</code></td>
-        <td>${workflow.workflow}</td>
-        <td>${formatDate(workflow.run_started_at)}</td>
-        <td class="${statusClass}">${statusIcon} <code>${statusText}</code></td>
-        <td>${workflow.html_url ? `<a href="${workflow.html_url}" target="_blank">View →</a>` : 'N/A'}</td>
-      </tr>`;
-      tbody.innerHTML += row;
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
   }
 
+  function getStatusBadge(workflow) {
+    let statusClass = '';
+    let icon = '';
+    let text = '';
+
+    if (workflow.status === 'error') {
+      statusClass = 'status-error';
+      icon = '⚠️';
+      text = 'Error';
+    } else if (workflow.conclusion === 'success') {
+      statusClass = 'status-success';
+      icon = '✅';
+      text = 'Success';
+    } else if (workflow.conclusion === 'failure') {
+      statusClass = 'status-failure';
+      icon = '❌';
+      text = 'Failed';
+    } else if (workflow.status === 'in_progress') {
+      statusClass = 'status-progress';
+      icon = '🔄';
+      text = 'Running';
+    } else {
+      statusClass = 'status-error';
+      icon = '❓';
+      text = workflow.status || 'Unknown';
+    }
+
+    return `<span class="status-badge ${statusClass}">${icon} ${text}</span>`;
+  }
+
+  // Render Table with expandable rows
+  function renderTable(dataToRender) {
+    const tbody = document.getElementById('workflowBody');
+    tbody.innerHTML = '';
+    
+    dataToRender.forEach((workflow, index) => {
+      const row = document.createElement('tr');
+      row.setAttribute('data-index', index);
+      row.innerHTML = `
+        <td><code>${workflow.owner}/${workflow.repo}</code></td>
+        <td>${workflow.workflow}</td>
+        <td><code>${workflow.branch}</code></td>
+        <td>
+          ${formatDate(workflow.run_started_at)}
+          <span class="relative-time">${getRelativeTime(workflow.run_started_at)}</span>
+        </td>
+        <td>${getStatusBadge(workflow)}</td>
+        <td>
+          ${workflow.html_url ? `<a href="${workflow.html_url}" target="_blank" class="link-button">View Run →</a>` : 'N/A'}
+        </td>
+      `;
+      
+      row.addEventListener('click', (e) => {
+        if (e.target.tagName !== 'A') {
+          toggleDetails(row, workflow);
+        }
+      });
+      
+      tbody.appendChild(row);
+      
+      // Add details row
+      const detailsRow = document.createElement('tr');
+      detailsRow.className = 'details-row';
+      detailsRow.setAttribute('data-details-for', index);
+      detailsRow.innerHTML = `
+        <td colspan="6" class="details-cell">
+          <div class="details-content">
+            <div class="detail-item">
+              <span class="detail-label">Run ID</span>
+              <span class="detail-value">#${workflow.run_number || 'N/A'}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Event Type</span>
+              <span class="detail-value">${workflow.event || 'N/A'}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Commit SHA</span>
+              <span class="detail-value"><code>${workflow.head_sha ? workflow.head_sha.substring(0, 7) : 'N/A'}</code></span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Started At</span>
+              <span class="detail-value">${formatDate(workflow.run_started_at)}</span>
+            </div>
+            ${workflow.error ? `
+            <div class="detail-item" style="grid-column: 1 / -1;">
+              <span class="detail-label">Error Message</span>
+              <span class="detail-value" style="color: var(--failure-color)">${workflow.error}</span>
+            </div>
+            ` : ''}
+          </div>
+        </td>
+      `;
+      tbody.appendChild(detailsRow);
+    });
+  }
+
+  function toggleDetails(row, workflow) {
+    const index = row.getAttribute('data-index');
+    const detailsRow = document.querySelector(`tr[data-details-for="${index}"]`);
+    
+    if (detailsRow.classList.contains('show')) {
+      detailsRow.classList.remove('show');
+      row.classList.remove('expanded');
+    } else {
+      // Close all other details
+      document.querySelectorAll('.details-row.show').forEach(r => r.classList.remove('show'));
+      document.querySelectorAll('tr.expanded').forEach(r => r.classList.remove('expanded'));
+      
+      detailsRow.classList.add('show');
+      row.classList.add('expanded');
+    }
+  }
+
+  // Sort by priority: failures first, then in_progress, then success
+  sortedData.sort((a, b) => {
+    const getOrder = (w) => {
+      if (w.conclusion === 'failure') return 0;
+      if (w.status === 'in_progress') return 1;
+      if (w.conclusion === 'success') return 2;
+      return 3;
+    };
+    return getOrder(a) - getOrder(b);
+  });
+
   renderTable(sortedData);
+  const stats = calculateStats();
+
+  // Create Charts
+  function updateCharts() {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const textColor = isDark ? '#f9fafb' : '#111827';
+    const gridColor = isDark ? '#4b5563' : '#e5e7eb';
+
+    // Status Pie Chart
+    const statusCtx = document.getElementById('statusChart').getContext('2d');
+    if (statusChart) statusChart.destroy();
+    
+    statusChart = new Chart(statusCtx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Success', 'Failed', 'In Progress', 'Error'],
+        datasets: [{
+          data: [stats.success, stats.failure, stats.inProgress, stats.errors],
+          backgroundColor: ['#10b981', '#ef4444', '#3b82f6', '#f59e0b'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { color: textColor, padding: 15, font: { size: 12 } }
+          }
+        }
+      }
+    });
+
+    // Repository Bar Chart
+    const repoCtx = document.getElementById('repoChart').getContext('2d');
+    if (repoChart) repoChart.destroy();
+    
+    const repoStats = {};
+    data.forEach(w => {
+      const repoName = `${w.owner}/${w.repo}`;
+      if (!repoStats[repoName]) {
+        repoStats[repoName] = { success: 0, failure: 0, other: 0 };
+      }
+      if (w.conclusion === 'success') repoStats[repoName].success++;
+      else if (w.conclusion === 'failure') repoStats[repoName].failure++;
+      else repoStats[repoName].other++;
+    });
+
+    const repoLabels = Object.keys(repoStats).slice(0, 10);
+    const successData = repoLabels.map(r => repoStats[r].success);
+    const failureData = repoLabels.map(r => repoStats[r].failure);
+    const otherData = repoLabels.map(r => repoStats[r].other);
+
+    repoChart = new Chart(repoCtx, {
+      type: 'bar',
+      data: {
+        labels: repoLabels,
+        datasets: [
+          {
+            label: 'Success',
+            data: successData,
+            backgroundColor: '#10b981'
+          },
+          {
+            label: 'Failed',
+            data: failureData,
+            backgroundColor: '#ef4444'
+          },
+          {
+            label: 'Other',
+            data: otherData,
+            backgroundColor: '#3b82f6'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        scales: {
+          x: {
+            stacked: true,
+            ticks: { color: textColor, font: { size: 10 } },
+            grid: { color: gridColor }
+          },
+          y: {
+            stacked: true,
+            ticks: { color: textColor },
+            grid: { color: gridColor }
+          }
+        },
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: { color: textColor, padding: 10 }
+          }
+        }
+      }
+    });
+  }
+
+  updateCharts();
 
   // Sorting functionality
   let currentSort = { column: null, direction: 'asc' };
@@ -113,7 +877,6 @@
     th.addEventListener('click', function() {
       const column = this.getAttribute('data-column');
 
-      // Update sort direction
       if (currentSort.column === column) {
         currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
       } else {
@@ -121,15 +884,9 @@
         currentSort.direction = 'asc';
       }
 
-      // Remove sort classes from all headers
-      document.querySelectorAll('th.sortable').forEach(h => {
-        h.classList.remove('asc', 'desc');
-      });
-
-      // Add sort class to current header
+      document.querySelectorAll('th.sortable').forEach(h => h.classList.remove('asc', 'desc'));
       this.classList.add(currentSort.direction);
 
-      // Sort the data
       sortedData.sort((a, b) => {
         let aVal, bVal;
 
@@ -139,9 +896,15 @@
         } else if (column === 'workflow') {
           aVal = a.workflow.toLowerCase();
           bVal = b.workflow.toLowerCase();
+        } else if (column === 'branch') {
+          aVal = a.branch.toLowerCase();
+          bVal = b.branch.toLowerCase();
         } else if (column === 'date') {
           aVal = new Date(a.run_started_at || 0);
           bVal = new Date(b.run_started_at || 0);
+        } else if (column === 'status') {
+          aVal = (a.conclusion || a.status || '').toLowerCase();
+          bVal = (b.conclusion || b.status || '').toLowerCase();
         }
 
         if (aVal < bVal) return currentSort.direction === 'asc' ? -1 : 1;
@@ -150,38 +913,91 @@
       });
 
       renderTable(sortedData);
-
-      // Reapply both filters after sorting
-      const filterRepoValue = document.getElementById('filterRepo').value;
-      const filterStatusValue = document.getElementById('filterStatus').value;
-      if (filterRepoValue || filterStatusValue) {
-        filterRepoTable();
-      }
+      applyFilters();
     });
   });
 
-  // Text-based repo filter with matching
-  const filterRepo = document.getElementById('filterRepo');
-  const filterStatus = document.getElementById('filterStatus');
-  
-  function filterRepoTable() {
+  // Advanced Filtering
+  function applyFilters() {
     const table = document.getElementById('workflowTable');
-    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-    const filterRepoValue = filterRepo.value.toLowerCase();
-    const statusFilterValue = filterStatus.value.toLowerCase();
+    const rows = Array.from(table.getElementsByTagName('tbody')[0].getElementsByTagName('tr'));
+    const filterRepo = document.getElementById('filterRepo').value.toLowerCase();
+    const filterWorkflow = document.getElementById('filterWorkflow').value.toLowerCase();
+    const filterStatus = document.getElementById('filterStatus').value;
+    const filterBranch = document.getElementById('filterBranch').value.toLowerCase();
 
-    for (let row of rows) {
+    rows.forEach(row => {
+      if (row.classList.contains('details-row')) return;
       const cells = row.getElementsByTagName('td');
+      if (cells.length === 0) return;
+      const index = row.getAttribute('data-index');
+      const workflow = sortedData[parseInt(index, 10)];
+
       const repo = cells[0].textContent.trim().toLowerCase();
-      const status = cells[3].textContent.toLowerCase();
-      
-      const repoMatch = filterRepoValue === '' || repo.includes(filterRepoValue);
-      const statusMatch = statusFilterValue === '' || status.includes(statusFilterValue);
-      
-      row.style.display = (repoMatch && statusMatch) ? '' : 'none';
-    }
+      const workflowName = cells[1].textContent.trim().toLowerCase();
+      const branch = cells[2].textContent.trim().toLowerCase();
+
+      const repoMatch = !filterRepo || repo.includes(filterRepo);
+      const workflowMatch = !filterWorkflow || workflowName.includes(filterWorkflow);
+      const branchMatch = !filterBranch || branch.includes(filterBranch);
+
+      // Status filter: match against workflow data, not badge text
+      let statusMatch = true;
+      if (filterStatus) {
+        if (filterStatus === 'success') {
+          statusMatch = workflow.conclusion === 'success';
+        } else if (filterStatus === 'failure') {
+          statusMatch = workflow.conclusion === 'failure';
+        } else if (filterStatus === 'in_progress') {
+          statusMatch = workflow.status === 'in_progress';
+        } else if (filterStatus === 'error') {
+          statusMatch = workflow.status === 'error';
+        } else {
+          statusMatch = false;
+        }
+      }
+
+      const show = repoMatch && workflowMatch && branchMatch && statusMatch;
+      row.style.display = show ? '' : 'none';
+      // Also hide/show details row
+      const detailsRow = document.querySelector(`tr[data-details-for="${index}"]`);
+      if (detailsRow) {
+        detailsRow.style.display = show ? '' : 'none';
+      }
+    });
   }
-  
-  filterRepo.addEventListener('input', filterRepoTable);
-  filterStatus.addEventListener('change', filterRepoTable);
+
+  document.getElementById('filterRepo').addEventListener('input', applyFilters);
+  document.getElementById('filterWorkflow').addEventListener('input', applyFilters);
+  document.getElementById('filterStatus').addEventListener('change', applyFilters);
+  document.getElementById('filterBranch').addEventListener('input', applyFilters);
+
+  // Export to CSV
+  document.getElementById('exportBtn').addEventListener('click', () => {
+    const headers = ['Repository', 'Workflow', 'Branch', 'Status', 'Conclusion', 'Run Number', 'Started At', 'URL'];
+    const rows = data.map(w => [
+      `${w.owner}/${w.repo}`,
+      w.workflow,
+      w.branch,
+      w.status,
+      w.conclusion || '',
+      w.run_number || '',
+      w.run_started_at || '',
+      w.html_url || ''
+    ]);
+
+    const csv = [headers, ...rows].map(row => 
+      row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+    ).join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `workflow-monitor-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
 </script>
+</body>
+</html>
