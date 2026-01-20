@@ -851,12 +851,29 @@
           x: {
             stacked: true,
             ticks: { color: textColor, font: { size: 10 } },
-            grid: { color: gridColor }
+            grid: { color: gridColor },
+            title: {
+              display: true,
+              text: 'Repositories',
+              color: textColor,
+              font: { size: 13, weight: 'bold' }
+            }
           },
           y: {
             stacked: true,
-            ticks: { color: textColor },
-            grid: { color: gridColor }
+            ticks: {
+              color: textColor,
+              stepSize: 1,
+              precision: 0
+            },
+            grid: { color: gridColor },
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: 'Monitored workflows',
+              color: textColor,
+              font: { size: 13, weight: 'bold' }
+            }
           }
         },
         plugins: {

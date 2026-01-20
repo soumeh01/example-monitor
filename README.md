@@ -162,16 +162,6 @@ Interactive HTML dashboard that can be:
 
 - Opened locally in a browser
 - Hosted on GitHub Pages
-- Deployed to any static hosting service
-
-## Deployment Options
-
-### GitHub Pages
-
-1. Enable GitHub Pages in repository settings
-2. Set source to root or /docs folder
-3. The workflow will automatically update `dashboard.html`
-4. Access at `https://your-username.github.io/workflow-monitoring-dashboard/`
 
 ## API Rate Limits
 
