@@ -15,6 +15,10 @@ on:
       - 'monitor-config.yml'
       - '.github/workflows/monitor-workflows.yml'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
@@ -67,7 +71,7 @@ jobs:
         with:
           name: workflow-monitoring-results
           path: results.json
-          retention-days: 30
+          retention-days: 7
           if-no-files-found: error
 
       - name: Check for failures

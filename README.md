@@ -6,7 +6,7 @@ repositories and generates HTML dashboards.
 ## Features
 
 - 🔍 **Multi-Repository Monitoring** - Monitor workflows across multiple GitHub repositories
-- 📊 **Interactive Dashboard** - Beautiful HTML dashboard with sorting and filtering
+- 📊 **Interactive Dashboard** - HTML dashboard with sorting and filtering
 - 📈 **Status Tracking** - Track success, failure, and in-progress workflows
 - ⚡ **Real-time Updates** - Automated scheduling via GitHub Actions
 
@@ -15,7 +15,6 @@ repositories and generates HTML dashboards.
 ### Prerequisites
 
 - Node.js 18+
-- GitHub Personal Access Token (for API access)
 
 ### Installation
 
@@ -25,7 +24,7 @@ npm install
 
 ### Configuration
 
-1. **Create or edit `monitor-config.yml`:**
+- **Create or edit `monitor-config.yml`:**
 
 ```yaml
 repositories:
@@ -44,7 +43,7 @@ repositories:
         event: schedule
 ```
 
-1. **Set GitHub Token:**
+- **Set GitHub Token:**
 
 ```bash
 export GITHUB_TOKEN=your_github_token_here
@@ -65,45 +64,12 @@ This will:
 - Create `dashboard.html` with interactive dashboard
 - Display summary statistics in terminal
 
-### GitHub Actions Setup
-
-The repository includes a pre-configured workflow that runs automatically:
-
-1. **Fork/Clone this repository**
-
-2. **Add your GitHub token as a repository secret:**
-   - Go to Settings → Secrets and variables → Actions
-   - Add `GITHUB_TOKEN` secret
-
-3. **Enable GitHub Actions:**
-   - Go to Actions tab
-   - Enable workflows
-
-4. **The workflow will:**
-   - Run weekly once (configurable via cron schedule)
-   - Generate and commit `dashboard.html`
-   - Upload results as artifacts
-   - Alert on failures
-
-## Dashboard Features
-
-### Filtering
-
-- **Repo Filter**: Text input with partial matching (case-insensitive)
-  - Type "arm" to show all repos containing "arm"
-  - Matches anywhere in the repo name
-
-- **Status Filter**: Dropdown with predefined options
-  - All / Success / Failure / In Progress
-
-Visual indicators show current sort direction (↑ ↓)
-
 ### Status Display
 
-- ✅ **Success** - Green color
-- ❌ **Failure** - Red color
-- 🔄 **In Progress** - Blue color
-- ⚠️ **Error** - Gray color
+- ✅ **Success**
+- ❌ **Failure**
+- 🔄 **In Progress**
+- ⚠️ **Error**
 
 ## Configuration Options
 
@@ -161,18 +127,7 @@ Raw JSON data with workflow details:
 Interactive HTML dashboard that can be:
 
 - Opened locally in a browser
-- Hosted on GitHub Pages
-
-## API Rate Limits
-
-- **Without token**: 60 requests/hour
-- **With token**: 5,000 requests/hour
-
-The script includes automatic delays to avoid rate limiting.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit issues or pull requests.
+- [GitHub Pages](https://soumeh01.github.io/example-monitor/dashboard.html)
 
 ## License
 
